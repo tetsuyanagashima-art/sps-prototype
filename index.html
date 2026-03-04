@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -209,6 +210,22 @@ const EXAMS = [
 const COMPANY = {name:"株式会社テックグロース",date:"2026年3月1日",participants:42,target:"経営層・次世代経営層"};
 const ORG = {total:64.2,Body:{avg:68.5,hi:62,lo:38},Cognitive:{avg:71.3,hi:69,lo:31},Work:{avg:60.8,hi:45,lo:55},Recovery:{avg:52.1,hi:29,lo:71}};
 const BENCH = {Body:66,Cognitive:68,Work:62,Recovery:55};
+const BENCH_INDUSTRY = {label:'IT業種平均',Body:66,Cognitive:68,Work:62,Recovery:55,total:62.8};
+const BENCH_SIZE = {label:'同規模企業平均（50-100名）',Body:63,Cognitive:65,Work:60,Recovery:53,total:60.3};
+const BENCH_ALL = {label:'全業種平均',Body:61,Cognitive:63,Work:58,Recovery:51,total:58.3};
+const BENCH_GENRE = [
+  {name:'基礎メンタル',axis:'Cognitive',self:72,industry:68,all:64},
+  {name:'認知負荷',axis:'Cognitive',self:58,industry:63,all:60},
+  {name:'身体活動',axis:'Body',self:71,industry:65,all:62},
+  {name:'食事・栄養',axis:'Body',self:65,industry:67,all:63},
+  {name:'戦略実行',axis:'Work',self:62,industry:60,all:57},
+  {name:'対人関係',axis:'Work',self:58,industry:63,all:59},
+  {name:'睡眠品質',axis:'Recovery',self:48,industry:55,all:52},
+  {name:'回復習慣',axis:'Recovery',self:53,industry:54,all:50},
+  {name:'知的生産',axis:'Cognitive',self:74,industry:70,all:66},
+  {name:'プレゼンティーイズム',axis:'Work',self:61,industry:62,all:58},
+  {name:'休息行動',axis:'Recovery',self:55,industry:56,all:51},
+];
 
 const TYPES = [
   {code:"HHHH",n:3,name:"オールラウンダー型"},{code:"HHHL",n:5,name:"ストラテジック・ドライバー型"},
@@ -659,12 +676,13 @@ function renderIndivRec(el){
 // CORPORATE DASHBOARD
 // ═══════════════════════════════════════════
 function renderCorporate(){
-  const tabs=[{k:'summary',l:'組織サマリー'},{k:'types',l:'タイプ分布'},{k:'genres',l:'ジャンル分析'},{k:'dept',l:'部門別'},{k:'risk',l:'リスクマップ'}];
+  const tabs=[{k:'summary',l:'組織サマリー'},{k:'bench',l:'業界ベンチマーク'},{k:'types',l:'タイプ分布'},{k:'genres',l:'ジャンル分析'},{k:'dept',l:'部門別'},{k:'risk',l:'リスクマップ'}];
   app().innerHTML = `
     <div class="tabs">${tabs.map(t=>`<div class="tab ${corpTab===t.k?'active':''}" onclick="corpTab='${t.k}';render();">${t.l}</div>`).join('')}</div>
     <div id="corp-content" class="fade"></div>`;
   const c=$('corp-content');
   if(corpTab==='summary') renderCorpSummary(c);
+  else if(corpTab==='bench') renderCorpBench(c);
   else if(corpTab==='types') renderCorpTypes(c);
   else if(corpTab==='genres') renderCorpGenres(c);
   else if(corpTab==='dept') renderCorpDept(c);
@@ -718,22 +736,6 @@ function renderCorpSummary(el){
     </div>
   </div>
 
-  <!-- Benchmark -->
-  <div class="card">
-    <p class="text-sm" style="font-weight:600;color:var(--primary);margin-bottom:12px;">同業種ベンチマーク比較</p>
-    ${AXES.map(a=>{
-      const s=ORG[a.key].avg;
-      const diff=(s-BENCH[a.key]).toFixed(1);
-      return `
-      <div class="flex items-center" style="gap:8px;margin-bottom:10px;">
-        <span class="text-xs" style="font-weight:600;color:${a.color};min-width:64px;">${a.key}</span>
-        <div class="flex-1">${barHTML(s,a.color)}</div>
-        <span class="text-xs" style="font-weight:600;min-width:40px;text-align:right;color:${diff>=0?'#22A06B':'#CF4B37'};">${diff>=0?'+':''}${diff}</span>
-      </div>`;
-    }).join('')}
-    <p style="font-size:10px;color:var(--gray);margin-top:4px;">※ ベンチマーク：IT業種・従業員50-100名企業平均</p>
-  </div>
-
   <button class="btn btn-outline btn-full" onclick="alert('デモ：企業レポートPDFダウンロード機能')" style="margin-top:4px;">
     📄 企業レポートPDFをダウンロード
   </button>`;
@@ -741,6 +743,149 @@ function renderCorpSummary(el){
   animateBars(el);
   drawScoreArc('org-arc',ORG.total,120);
   AXES.forEach(a=>{drawDoughnut('doughnut-'+a.key,ORG[a.key].hi,ORG[a.key].lo,a.color);});
+}
+
+function renderCorpBench(el){
+  const benchmarks = [BENCH_INDUSTRY, BENCH_SIZE, BENCH_ALL];
+  el.innerHTML = `
+  <div class="sec-title">業界ベンチマーク比較</div>
+  <p class="sec-sub">自社スコアと業界・同規模・全業種平均との比較</p>
+
+  <!-- Overall comparison -->
+  <div class="card">
+    <p class="text-sm" style="font-weight:600;color:var(--primary);margin-bottom:12px;">総合スコア比較</p>
+    <div class="grid2 grid-wide" style="gap:16px;">
+      <div class="text-center" style="padding:12px 0;">
+        <p class="text-xs" style="color:var(--gray);margin-bottom:4px;">自社</p>
+        <p style="font-size:32px;font-weight:700;color:var(--accent);">${ORG.total}</p>
+      </div>
+      ${benchmarks.map(b=>{
+        const diff=(ORG.total-b.total).toFixed(1);
+        return `<div class="text-center" style="padding:12px 0;">
+          <p class="text-xs" style="color:var(--gray);margin-bottom:4px;">${b.label}</p>
+          <p style="font-size:32px;font-weight:700;color:#555;">${b.total}</p>
+          <p class="text-xs" style="font-weight:600;color:${diff>=0?'#22A06B':'#CF4B37'};margin-top:2px;">${diff>=0?'+':''}${diff}</p>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <!-- Axis comparison chart -->
+  <div class="card">
+    <p class="text-sm" style="font-weight:600;color:var(--primary);margin-bottom:12px;">軸別ベンチマーク比較</p>
+    <div style="position:relative;height:300px;"><canvas id="bench-radar"></canvas></div>
+    <div class="flex items-center" style="gap:16px;justify-content:center;margin-top:8px;flex-wrap:wrap;">
+      <span style="font-size:11px;"><span style="display:inline-block;width:12px;height:3px;background:var(--accent);margin-right:4px;vertical-align:middle;"></span>自社</span>
+      <span style="font-size:11px;"><span style="display:inline-block;width:12px;height:3px;background:#E97F33;margin-right:4px;vertical-align:middle;"></span>${BENCH_INDUSTRY.label}</span>
+      <span style="font-size:11px;"><span style="display:inline-block;width:12px;height:3px;background:#6B5CE7;margin-right:4px;vertical-align:middle;"></span>${BENCH_SIZE.label}</span>
+      <span style="font-size:11px;"><span style="display:inline-block;width:12px;height:3px;background:#999;margin-right:4px;vertical-align:middle;"></span>${BENCH_ALL.label}</span>
+    </div>
+  </div>
+
+  <!-- Axis detail bars -->
+  <div class="card">
+    <p class="text-sm" style="font-weight:600;color:var(--primary);margin-bottom:16px;">軸別スコア詳細</p>
+    ${AXES.map(a=>{
+      const self=ORG[a.key].avg;
+      const ind=BENCH_INDUSTRY[a.key];
+      const sz=BENCH_SIZE[a.key];
+      const all=BENCH_ALL[a.key];
+      const diff=(self-ind).toFixed(1);
+      return `
+      <div style="margin-bottom:20px;">
+        <div class="flex items-center justify-between" style="margin-bottom:8px;">
+          <span style="font-weight:600;font-size:14px;color:${a.color};">${a.key}</span>
+          <span class="text-xs" style="font-weight:600;color:${diff>=0?'#22A06B':'#CF4B37'};">業種比 ${diff>=0?'+':''}${diff}</span>
+        </div>
+        <div style="margin-bottom:4px;">
+          <div class="flex items-center" style="gap:8px;">
+            <span class="text-xs" style="min-width:80px;color:#555;">自社</span>
+            <div class="bar-bg"><div class="bar-fill" style="background:${a.color};" data-w="${self}"></div></div>
+            <span class="text-xs" style="font-weight:700;min-width:32px;text-align:right;">${self}</span>
+          </div>
+        </div>
+        <div style="margin-bottom:4px;">
+          <div class="flex items-center" style="gap:8px;">
+            <span class="text-xs" style="min-width:80px;color:#999;">業種平均</span>
+            <div class="bar-bg"><div class="bar-fill" style="background:#E97F33;opacity:.5;" data-w="${ind}"></div></div>
+            <span class="text-xs" style="min-width:32px;text-align:right;color:#999;">${ind}</span>
+          </div>
+        </div>
+        <div style="margin-bottom:4px;">
+          <div class="flex items-center" style="gap:8px;">
+            <span class="text-xs" style="min-width:80px;color:#999;">同規模平均</span>
+            <div class="bar-bg"><div class="bar-fill" style="background:#6B5CE7;opacity:.5;" data-w="${sz}"></div></div>
+            <span class="text-xs" style="min-width:32px;text-align:right;color:#999;">${sz}</span>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center" style="gap:8px;">
+            <span class="text-xs" style="min-width:80px;color:#bbb;">全業種平均</span>
+            <div class="bar-bg"><div class="bar-fill" style="background:#999;opacity:.4;" data-w="${all}"></div></div>
+            <span class="text-xs" style="min-width:32px;text-align:right;color:#bbb;">${all}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <!-- Genre-level benchmark -->
+  <div class="card">
+    <p class="text-sm" style="font-weight:600;color:var(--primary);margin-bottom:12px;">ジャンル別ベンチマーク</p>
+    <div style="overflow-x:auto;">
+      <table class="tbl">
+        <thead><tr><th style="text-align:left;">ジャンル</th><th>軸</th><th>自社</th><th>業種</th><th>全業種</th><th>差分</th></tr></thead>
+        <tbody>${BENCH_GENRE.map(g=>{
+          const diff=g.self-g.industry;
+          return `<tr>
+            <td>${g.name}</td>
+            <td><span style="color:${axisColor(g.axis)};font-weight:600;font-size:11px;">${g.axis}</span></td>
+            <td><span class="cell-score" style="background:${cellBg(g.self)};color:${cellTxt(g.self)};">${g.self}</span></td>
+            <td style="color:#888;">${g.industry}</td>
+            <td style="color:#aaa;">${g.all}</td>
+            <td><span style="font-weight:700;font-size:11px;color:${diff>=0?'#22A06B':'#CF4B37'};">${diff>=0?'+':''}${diff}</span></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Insights -->
+  <div class="card" style="background:#EFF6FF;border-color:#BFDBFE;">
+    <p class="text-xs" style="font-weight:600;color:#1E40AF;margin-bottom:8px;">📊 ベンチマーク・インサイト</p>
+    <p class="text-xs" style="color:#1E3A8A;line-height:1.8;">
+      • 総合スコアは業種平均を<b>+1.4pt</b>上回り、同規模比でも<b>+3.9pt</b>と優位<br>
+      • <b>Body軸・Cognitive軸</b>は業種平均を上回る強み。特にBody軸は+2.5ptと顕著<br>
+      • <b>Recovery軸</b>は業種平均を<b>−2.9pt</b>下回り、最大の改善ポイント<br>
+      • ジャンル別では「睡眠品質」が業種平均−7ptと最も乖離が大きい<br>
+      • 「基礎メンタル」「身体活動」は業種トップクラスの水準
+    </p>
+  </div>`;
+
+  animateBars(el);
+
+  // Radar chart for benchmark comparison
+  const radarCtx = $('bench-radar');
+  const labels = AXES.map(a=>a.key);
+  const selfData = AXES.map(a=>ORG[a.key].avg);
+  const ch = new Chart(radarCtx, {
+    type:'radar',
+    data:{
+      labels,
+      datasets:[
+        {label:'自社',data:selfData,borderColor:'#2E86AB',backgroundColor:'rgba(46,134,171,.15)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#2E86AB'},
+        {label:BENCH_INDUSTRY.label,data:AXES.map(a=>BENCH_INDUSTRY[a.key]),borderColor:'#E97F33',backgroundColor:'rgba(233,127,51,.08)',borderWidth:1.5,borderDash:[6,3],pointRadius:3,pointBackgroundColor:'#E97F33'},
+        {label:BENCH_SIZE.label,data:AXES.map(a=>BENCH_SIZE[a.key]),borderColor:'#6B5CE7',backgroundColor:'rgba(107,92,231,.08)',borderWidth:1.5,borderDash:[4,4],pointRadius:3,pointBackgroundColor:'#6B5CE7'},
+        {label:BENCH_ALL.label,data:AXES.map(a=>BENCH_ALL[a.key]),borderColor:'#999',backgroundColor:'rgba(153,153,153,.05)',borderWidth:1,borderDash:[3,3],pointRadius:2,pointBackgroundColor:'#999'},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      scales:{r:{min:40,max:80,ticks:{stepSize:10,font:{size:10}},grid:{color:'#E5E7EB'},pointLabels:{font:{size:13,weight:'bold'}}}},
+      plugins:{legend:{display:false}}
+    }
+  });
+  charts.push(ch);
 }
 
 function renderCorpTypes(el){
